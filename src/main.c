@@ -24,21 +24,21 @@
 #include "scene.h"
 
 // Configuration
-#define TEST_MODE 1         // 1 = low-res fast test, 0 = full quality
+#define TEST_MODE 0         // 1 = low-res fast test, 0 = full quality
 
 #if TEST_MODE
 #define WIDTH 200
 #define HEIGHT 150
 #else
-#define WIDTH 800
-#define HEIGHT 600
+#define WIDTH 1600
+#define HEIGHT 900
 #endif
 
 #define MAX_RAY_DISTANCE 150.0
 
 // Animation settings
-#define ANIMATE 0           // Set to 1 for animation, 0 for single frame
-#define NUM_FRAMES 60
+#define ANIMATE 1           // Set to 1 for animation, 0 for single frame
+#define NUM_FRAMES 30       // Render 30 frames as requested
 #define ORBIT_RADIUS 120.0  // Very far back - full system visible
 #define CAMERA_HEIGHT 5.0   // Minimal tilt - near edge-on like Interstellar
 
@@ -172,7 +172,9 @@ void render_frame(int frame_num, int total_frames, double time) {
     BlackHole bh = blackhole_create(vec3(0, 0, 0), 1.0, BH_SPIN);
     
     // Camera position
-    double angle = (2.0 * 3.14159265358979323846 * frame_num) / total_frames;
+    // Camera position - orbit slowly (100 frames for full 360)
+    // We decouple orbit speed from total_frames so 15 frames doesn't mean full super-fast spin
+    double angle = (2.0 * 3.14159265358979323846 * frame_num) / 100.0;
     Vec3 cam_pos = vec3(
         ORBIT_RADIUS * sin(angle),
         CAMERA_HEIGHT,
@@ -185,6 +187,7 @@ void render_frame(int frame_num, int total_frames, double time) {
     
     Camera cam = camera_create(cam_pos, look_at, world_up, fov, aspect);
     
+    // OpenMP disabled (needs admin to install) - running single threaded
     for (int y = 0; y < HEIGHT; y++) {
         if (total_frames == 1) {
             print_progress(y, HEIGHT);

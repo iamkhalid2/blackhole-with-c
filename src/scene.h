@@ -86,44 +86,41 @@ static inline double disk_temperature(double radius, double r_inner, double T_ma
     return T_max * profile;
 }
 
-// Starfield background
+// Starfield background - Pure Black Space with sharp stars
 static inline Vec3 scene_starfield(Vec3 direction) {
     Vec3 dir = vec3_normalize(direction);
     double theta, phi;
     dir_to_spherical(dir, &theta, &phi);
     
-    int grid_size = 200;
+    // Higher resolution grid for smaller, sharper stars
+    int grid_size = 400;
     int grid_x = (int)((phi + PI) / (2.0 * PI) * grid_size);
     int grid_y = (int)(theta / PI * grid_size);
     
-    Vec3 bg = vec3(0.0, 0.0, 0.02);
+    // Default: PURE BLACK (no nebula haze)
+    Vec3 bg = vec3(0.0, 0.0, 0.0);
     
     unsigned int cell_hash = hash2d(grid_x, grid_y);
     double star_prob = hash_to_float(cell_hash);
     
-    if (star_prob > 0.97) {
+    // Fewer but brighter, sharper stars
+    if (star_prob > 0.985) {
         unsigned int brightness_hash = hash(cell_hash + 12345);
-        double brightness = 0.5 + 0.5 * hash_to_float(brightness_hash);
+        double brightness = hash_to_float(brightness_hash);
         
+        // Star color variation (subtle)
         unsigned int color_hash = hash(cell_hash + 67890);
         double color_temp = hash_to_float(color_hash);
         
         Vec3 star_color;
-        if (color_temp < 0.3) {
-            star_color = vec3(0.8, 0.85, 1.0);
-        } else if (color_temp < 0.7) {
-            star_color = vec3(1.0, 1.0, 1.0);
-        } else if (color_temp < 0.9) {
-            star_color = vec3(1.0, 0.95, 0.8);
-        } else {
-            star_color = vec3(1.0, 0.7, 0.4);
-        }
+        if (color_temp < 0.2) star_color = vec3(0.8, 0.9, 1.0);      // Blue-ish
+        else if (color_temp < 0.8) star_color = vec3(1.0, 1.0, 1.0); // White
+        else star_color = vec3(1.0, 0.9, 0.7);                       // Yellow-ish
         
-        return vec3_scale(star_color, brightness * 2.0);
+        // Intensity - allow stars to be very bright (bloom source)
+        double intensity = 1.0 + brightness * 4.0;
+        return vec3_scale(star_color, intensity);
     }
-    
-    double milky_way = exp(-pow(dir.y * 3.0, 2.0)) * 0.03;
-    bg = vec3_add(bg, vec3(milky_way * 0.8, milky_way * 0.7, milky_way * 1.0));
     
     return bg;
 }
