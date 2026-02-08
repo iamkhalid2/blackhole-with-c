@@ -4,9 +4,6 @@ blackhole.exe
 *.o
 *.a
 
-# Render Output (large image sequences)
-output/
-
 # OS / Editor Files
 .DS_Store
 Thumbs.db
