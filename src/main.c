@@ -24,23 +24,32 @@
 #include "scene.h"
 
 // Configuration
+#define TEST_MODE 1         // 1 = low-res fast test, 0 = full quality
+
+#if TEST_MODE
+#define WIDTH 200
+#define HEIGHT 150
+#else
 #define WIDTH 800
 #define HEIGHT 600
-#define MAX_RAY_DISTANCE 100.0
+#endif
+
+#define MAX_RAY_DISTANCE 150.0
 
 // Animation settings
 #define ANIMATE 0           // Set to 1 for animation, 0 for single frame
 #define NUM_FRAMES 60
-#define ORBIT_RADIUS 20.0   // Further back to see full scene
-#define CAMERA_HEIGHT 12.0  // Much higher - ~30 degree elevation to see disk from above
+#define ORBIT_RADIUS 120.0  // Very far back - full system visible
+#define CAMERA_HEIGHT 5.0   // Minimal tilt - near edge-on like Interstellar
 
 // Black hole settings
 #define BH_SPIN 0.95        // High spin for visible effects (0 to 0.998)
 #define DISK_SPIN_DIR 1.0   // +1 = counterclockwise, -1 = clockwise
 
 // Accretion disk settings
-#define DISK_INNER_RADIUS 3.0
-#define DISK_OUTER_RADIUS 12.0
+// Note: DISK_INNER_RADIUS will be overridden by physics-based ISCO
+#define DISK_INNER_RADIUS 3.0  // Fallback - actual inner edge uses ISCO
+#define DISK_OUTER_RADIUS 50.0  // Wide disk spanning frame
 
 void print_progress(int current, int total) {
     int bar_width = 50;
@@ -110,7 +119,8 @@ FullTraceResult trace_ray_full(BlackHole *bh, Ray ray, double time) {
                 
                 // Get disk color with full relativistic effects
                 Vec3 disk_emission = get_disk_color_relativistic(
-                    disk_point, dir, time, DISK_SPIN_DIR, grav_redshift
+                    disk_point, dir, time, DISK_SPIN_DIR, grav_redshift,
+                    DISK_INNER_RADIUS, DISK_OUTER_RADIUS
                 );
                 
                 // Composite

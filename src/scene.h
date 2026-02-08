@@ -29,6 +29,63 @@ static inline void dir_to_spherical(Vec3 dir, double *theta, double *phi) {
     *phi = atan2(dir.z, dir.x);
 }
 
+// Blackbody temperature to RGB color
+// Based on Planck spectrum integration over visible wavelengths
+// Temperature in Kelvin, returns normalized RGB
+static inline Vec3 blackbody_to_rgb(double temperature_K) {
+    // Clamp temperature range
+    double T = fmax(1000.0, fmin(40000.0, temperature_K));
+    
+    // Approximate RGB from blackbody (Tanner Helland algorithm, physics-based)
+    double r, g, b;
+    
+    // Normalize temperature to 0-1 range for our working range
+    double t = T / 100.0;
+    
+    // Red channel
+    if (t <= 66.0) {
+        r = 255.0;
+    } else {
+        r = 329.698727446 * pow(t - 60.0, -0.1332047592);
+    }
+    
+    // Green channel  
+    if (t <= 66.0) {
+        g = 99.4708025861 * log(t) - 161.1195681661;
+    } else {
+        g = 288.1221695283 * pow(t - 60.0, -0.0755148492);
+    }
+    
+    // Blue channel
+    if (t >= 66.0) {
+        b = 255.0;
+    } else if (t <= 19.0) {
+        b = 0.0;
+    } else {
+        b = 138.5177312231 * log(t - 10.0) - 305.0447927307;
+    }
+    
+    // Normalize to 0-1 and clamp
+    r = fmax(0.0, fmin(255.0, r)) / 255.0;
+    g = fmax(0.0, fmin(255.0, g)) / 255.0;
+    b = fmax(0.0, fmin(255.0, b)) / 255.0;
+    
+    return vec3(r, g, b);
+}
+
+// Accretion disk temperature profile (Shakura-Sunyaev thin disk model)
+// T(r) ∝ r^(-3/4) × (1 - sqrt(r_in/r))^(1/4)
+// Peak temperature typically 10^4 to 10^7 K for stellar/supermassive BH
+static inline double disk_temperature(double radius, double r_inner, double T_max) {
+    if (radius <= r_inner * 1.01) return T_max;
+    
+    // Shakura-Sunyaev profile
+    double r_ratio = r_inner / radius;
+    double profile = pow(radius / r_inner, -0.75) * pow(1.0 - sqrt(r_ratio), 0.25);
+    
+    return T_max * profile;
+}
+
 // Starfield background
 static inline Vec3 scene_starfield(Vec3 direction) {
     Vec3 dir = vec3_normalize(direction);
@@ -109,11 +166,11 @@ static inline double calculate_doppler_factor(Vec3 disk_point, Vec3 ray_dir, dou
     Vec3 to_observer = vec3_negate(ray_dir);
     double cos_angle = vec3_dot(vel_dir, to_observer);
     
-    // Doppler factor
+    // Doppler factor - full relativistic calculation
     double doppler = 1.0 / (gamma * (1.0 - v * cos_angle));
     
     // Clamp to avoid extreme values
-    doppler = fmax(0.1, fmin(doppler, 5.0));
+    doppler = fmax(0.2, fmin(doppler, 4.0));
     
     return doppler;
 }
@@ -141,38 +198,40 @@ static inline Vec3 apply_redshift(Vec3 color, double redshift_factor) {
 }
 
 // Get accretion disk color with all relativistic effects
+// Physics-based: Shakura-Sunyaev temperature profile + blackbody radiation
 static inline Vec3 get_disk_color_relativistic(Vec3 point, Vec3 ray_dir, 
                                                 double time, double spin_dir,
-                                                double gravitational_redshift) {
+                                                double gravitational_redshift,
+                                                double inner_radius, double outer_radius) {
     double radius = sqrt(point.x * point.x + point.z * point.z);
     
-    // Base temperature color (black body approximation)
-    double inner_r = 3.0;
-    double outer_r = 12.0;
-    double r_norm = (radius - inner_r) / (outer_r - inner_r);
-    r_norm = fmax(0.0, fmin(1.0, r_norm));
-    
-    // Temperature gradient: hot blue-white inside, cooler orange-red outside
-    Vec3 inner_color = vec3(1.5, 1.8, 3.0);
-    Vec3 mid_color = vec3(2.5, 1.5, 0.5);
-    Vec3 outer_color = vec3(1.5, 0.3, 0.1);
-    
-    Vec3 base_color;
-    if (r_norm < 0.5) {
-        base_color = vec3_lerp(inner_color, mid_color, r_norm * 2.0);
-    } else {
-        base_color = vec3_lerp(mid_color, outer_color, (r_norm - 0.5) * 2.0);
+    // Disk boundaries check
+    if (radius < inner_radius || radius > outer_radius) {
+        return vec3(0, 0, 0);
     }
     
-    // Base brightness (T^4 scaling approximately)
-    double temp_factor = 1.0 - r_norm * 0.8;
-    double base_brightness = temp_factor * temp_factor * temp_factor * temp_factor;
-    base_brightness = fmax(0.1, base_brightness);
+    // PHYSICS-BASED TEMPERATURE: Shakura-Sunyaev profile
+    double T_max = 15000.0;  // Peak temp ~15000K for blue-white inner edge
+    double T = disk_temperature(radius, inner_radius, T_max);
     
-    // Spiral arm structure
+    // Blackbody color from temperature
+    Vec3 base_color = blackbody_to_rgb(T);
+    
+    // Brightness scales as T^4 (Stefan-Boltzmann law)
+    double T_ratio = T / T_max;
+    double base_brightness = T_ratio * T_ratio * T_ratio * T_ratio;
+    base_brightness = fmax(0.05, base_brightness);
+    // Log exposure - compresses dynamic range for visibility
+    base_brightness = log(1.0 + base_brightness * 10.0) / log(11.0);
+    base_brightness = fmax(0.2, base_brightness);
+    
+    // Scale for HDR rendering
+    base_color = vec3_scale(base_color, base_brightness * 5.0);
+    
+    // Subtle spiral arm structure (less pronounced than before)
     double angle = atan2(point.z, point.x);
-    double spiral = sin(angle * 3.0 + radius * 0.5 - time * 2.0 * spin_dir);
-    double spiral_factor = 0.7 + 0.3 * spiral * spiral;
+    double spiral = sin(angle * 2.0 + radius * 0.3 - time * 1.5 * spin_dir);
+    double spiral_factor = 0.9 + 0.1 * spiral * spiral;  // Subtle variation
     
     // Turbulence noise
     unsigned int noise_x = (unsigned int)((point.x + 100.0) * 10.0);

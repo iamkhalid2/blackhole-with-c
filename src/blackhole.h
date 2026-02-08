@@ -33,6 +33,30 @@ static inline BlackHole blackhole_create(Vec3 position, double mass, double spin
     return bh;
 }
 
+// Calculate Innermost Stable Circular Orbit (ISCO) radius for Kerr black hole
+// This is where the accretion disk inner edge physically must be
+// Formula from Bardeen, Press, Teukolsky (1972)
+static inline double blackhole_isco_radius(BlackHole *bh) {
+    double a = bh->spin;
+    double M = bh->mass;
+    
+    // Z1 = 1 + (1-a²)^(1/3) × [(1+a)^(1/3) + (1-a)^(1/3)]
+    double one_minus_a2 = 1.0 - a * a;
+    double cbrt_1ma2 = cbrt(one_minus_a2);
+    double cbrt_1pa = cbrt(1.0 + a);
+    double cbrt_1ma = cbrt(1.0 - a);
+    double Z1 = 1.0 + cbrt_1ma2 * (cbrt_1pa + cbrt_1ma);
+    
+    // Z2 = sqrt(3a² + Z1²)
+    double Z2 = sqrt(3.0 * a * a + Z1 * Z1);
+    
+    // r_ISCO = M × (3 + Z2 - sqrt((3-Z1)(3+Z1+2Z2)))
+    // This is for prograde orbits (co-rotating with BH)
+    double r_isco = M * (3.0 + Z2 - sqrt((3.0 - Z1) * (3.0 + Z1 + 2.0 * Z2)));
+    
+    return r_isco;
+}
+
 // Frame dragging angular velocity (Lense-Thirring effect)
 // At distance r, space itself rotates with angular velocity omega
 static inline double blackhole_frame_drag_omega(BlackHole *bh, double r, double theta) {
