@@ -8,3 +8,7 @@ blackhole.exe
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Output files
+output/frame_0000.ppm
+output/frame_0001.ppm
