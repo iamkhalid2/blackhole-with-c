@@ -1,14 +1,1 @@
-# Build artifacts
-blackhole
 blackhole.exe
-*.o
-*.a
-
-# OS / Editor Files
-.DS_Store
-Thumbs.db
-.vscode/
-
-# Output files
-output/frame_0000.ppm
-output/frame_0001.ppm

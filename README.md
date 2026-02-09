@@ -1,7 +1,6 @@
 # Supermassive Kerr Black Hole Simulation (Pure C)
 
-![Simulation Output](blackhole_animation.gif)
-*(Placeholder for output GIF - render using instructions below)*
+![Simulation Output](blackhole_900ps.gif)
 
 A scientifically accurate, high-performance 3D black hole simulation written entirely in **pure C** (C99 standard) with no external library dependencies. It implements general relativity ray-tracing to visualize a rotating (Kerr) black hole with an accretion disk, achieving visual fidelity comparable to *Interstellar*'s Gargantua.
 
@@ -86,5 +85,4 @@ Or **FFmpeg**:
 ffmpeg -framerate 30 -i output/frame_%04d.ppm -c:v libx264 -pix_fmt yuv420p output.mp4
 ```
 
-## 📜 License
-MIT License. Free to use for educational and scientific visualization purposes.
+## Free to use for educational and scientific visualization purposes.
